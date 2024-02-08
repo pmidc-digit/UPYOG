@@ -52,36 +52,26 @@ public class PieChartResponseHandler implements IResponseHandler {
          * For every aggregation on plot object is added
          */
         aggrsPaths.forEach(headerPath -> {
-            aggregationNode.findValues(headerPath.asText()).stream().forEach(valueNode->{
+            aggregationNode.findValues(headerPath.asText()).stream().parallel().forEach(valueNode->{
                 if(valueNode.has(BUCKETS)){
                     JsonNode buckets = valueNode.findValue(BUCKETS);
                     buckets.forEach(bucket -> {
                         Double val = valueNode.findValues(VALUE).isEmpty() ? bucket.findValue(DOC_COUNT).asInt() : bucket.findValue(VALUE).asDouble();
                         totalValue.add(val);
-                        if(plotMap.containsKey(bucket.findValue(KEY).asText())) {
-                        	val = val + plotMap.get(bucket.findValue(KEY).asText());
-                        }
-                        plotMap.put(bucket.findValue(KEY).asText(), new Double("0") + val);
-//                        Plot plot = new Plot(bucket.findValue(KEY).asText(), val, symbol);
-//                        headerPlotList.add(plot);
+                        Plot plot = new Plot(bucket.findValue(KEY).asText(), val, symbol);
+                        headerPlotList.add(plot);
                     });
 
                 } else {
                     List<JsonNode> valueNodes = valueNode.findValues(VALUE).isEmpty() ? valueNode.findValues(DOC_COUNT) : valueNode.findValues(VALUE);
                     double sum = valueNodes.stream().mapToLong(o -> o.asLong()).sum();
                     totalValue.add(sum);
-                    if(plotMap.containsKey(headerPath.asText())) {
-                    	plotMap.put(headerPath.asText(),plotMap.get(headerPath.asText())+sum);
-                    }
-                    else {
-                    	plotMap.put(headerPath.asText(), sum);
-                    }
-//                    Plot plot = new Plot(headerPath.asText(), sum, symbol);
-//                    headerPlotList.add(plot);
+                    Plot plot = new Plot(headerPath.asText(), sum, symbol);
+                    headerPlotList.add(plot);
                 }
             });
         });
-        headerPlotList = plotMap.entrySet().stream().map(e -> new Plot(e.getKey(), e.getValue(), symbol)).collect(Collectors.toList());
+
         Data data = new Data(headerKey, totalValue.stream().reduce(0.0, Double::sum), symbol);
         data.setPlots(headerPlotList);
         dataList.add(data);

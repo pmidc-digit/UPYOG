@@ -68,8 +68,7 @@ public class LineChartResponseHandler implements IResponseHandler {
         boolean executeComputedFields = computedFields !=null && computedFields.isArray();
 
 
-        //aggrsPaths.forEach(headerPath -> {
-        for(JsonNode headerPath : aggrsPaths){
+        aggrsPaths.forEach(headerPath -> {
             List<JsonNode> aggrNodes = aggregationNode.findValues(headerPath.asText());
             
             
@@ -90,7 +89,8 @@ public class LineChartResponseHandler implements IResponseHandler {
             Map<String, Double> plotMap = new LinkedHashMap<>();
             Map<String, Double> multiAggrPlotMap = new LinkedHashMap<>();
             List<Double> totalValues = new ArrayList<>();
-            Set<String> finalBucketKeys = new LinkedHashSet<>();
+            aggrNodes.stream().forEach(aggrNode -> {
+                if (aggrNode.findValues(IResponseHandler.BUCKETS).size() > 0) {
 
             // For multi aggr, find all plot keys first
             enrichBucketKeys(aggrNodes, finalBucketKeys, interval);
@@ -99,26 +99,25 @@ public class LineChartResponseHandler implements IResponseHandler {
             for(JsonNode aggrNode : aggrNodes) {
                 if (aggrNode.findValues(IResponseHandler.BUCKETS).size() > 0) {
                     ArrayNode buckets = (ArrayNode) aggrNode.findValues(IResponseHandler.BUCKETS).get(0);
-                    for(JsonNode bucket : buckets){
+                    buckets.forEach(bucket -> {
                             String bkey = bucket.findValue(IResponseHandler.KEY).asText();
                             String key = getIntervalKey(bkey, Constants.Interval.valueOf(interval));
 
                             plotKeys.add(key);
-                            double previousVal = !isCumulative ? 0.0 : (totalValues.size() > 0 ? totalValues.get(totalValues.size() - 1) : 0.0);
+                        double previousVal = !isCumulative ? 0.0 : (totalValues.size()>0 ? totalValues.get(totalValues.size()-1):0.0);
 
                             double value = 0.0;
-                            if (executeComputedFields) {
+                        if(executeComputedFields){
                                 try {
 
-                                    List<ComputedFields> computedFieldsList = mapper.readValue(computedFields.toString(), new TypeReference<List<ComputedFields>>() {
-                                    });
+                                List<ComputedFields> computedFieldsList = mapper.readValue(computedFields.toString(), new TypeReference<List<ComputedFields>>(){});
 
-                                    for (ComputedFields cfs : computedFieldsList) {
+                                for(ComputedFields cfs :computedFieldsList){
                                         IComputedField computedFieldObject = computedFieldFactory.getInstance(cfs.getActionName());
                                         computedFieldObject.set(requestDto, cfs.getPostAggregationTheory());
-                                        computedFieldObject.add(bucket, cfs.getFields(), cfs.getNewField(), chartNode);
+                                    computedFieldObject.add(bucket, cfs.getFields(), cfs.getNewField(),chartNode);
 
-                                        if (symbolFromPathDataTypeMap.equals(DAYS)) {
+                                    if(symbol.equals(DAYS)){
 
                                             long milidiff = bucket.findValue(cfs.getNewField()).get(IResponseHandler.VALUE).asLong();
                                             long days = TimeUnit.MILLISECONDS.toDays(milidiff);
@@ -130,54 +129,33 @@ public class LineChartResponseHandler implements IResponseHandler {
                                         }
                                     }
 
-                                } catch (Exception e) {
-                                    logger.error("execution of computed field :" + e.getMessage());
+                            } catch (Exception e){
+                                logger.error("execution of computed field :"+e.getMessage());
                                 }
 
                             } else {
-                                String jsonStr = bucket.toString();
-                                JSONObject currObj = new JSONObject(jsonStr);
-                                for (Iterator<String> it = bucket.fieldNames(); it.hasNext(); ) {
-                                    String fieldName = it.next();
-                                    if (currObj.get(fieldName) instanceof JSONObject) {
-                                        if (bucket.get(fieldName).findValue("buckets") == null) {
-                                            value = previousVal + ((bucket.get(fieldName).findValue(IResponseHandler.VALUE) != null) ? bucket.get(fieldName).findValue(IResponseHandler.VALUE).asDouble() : bucket.get(fieldName).findValue(IResponseHandler.DOC_COUNT).asDouble());
-                                        }
+                            value = previousVal + ((bucket.findValue(IResponseHandler.VALUE) != null) ? bucket.findValue(IResponseHandler.VALUE).asDouble():bucket.findValue(IResponseHandler.DOC_COUNT).asDouble());
 
-                                    }
-                                }
-
-                                //value = previousVal + ((bucket.findValue(IResponseHandler.VALUE) != null) ? bucket.findValue(IResponseHandler.VALUE).asDouble():bucket.findValue(IResponseHandler.DOC_COUNT).asDouble());
-
-                                if (chartNode.get(IS_ROUND_OFF) != null && chartNode.get(IS_ROUND_OFF).asBoolean()) {
+                            if(chartNode.get(IS_ROUND_OFF)!=null && chartNode.get(IS_ROUND_OFF).asBoolean()) {
                                     value = (double) Math.round(value);
                                 }
                             }
                             //double value = previousVal + ((bucket.findValue(IResponseHandler.VALUE) != null) ? bucket.findValue(IResponseHandler.VALUE).asDouble():bucket.findValue(IResponseHandler.DOC_COUNT).asDouble());
 
-                            plotMap.put(key, new Double("0") + value);
+                        plotMap.put(key, plotMap.get(key) == null ? new Double("0") + value : plotMap.get(key) + value);
                             totalValues.add(value);
+                    });
                         }
-                }
-                addIterationResultsToMultiAggrMap(plotMap, multiAggrPlotMap, isCumulative);
-                plotMap.clear();
-                totalValues.clear();
-            }
-
-            plotMap = multiAggrPlotMap;
-
-            totalValues = new ArrayList<>(plotMap.values());
-            String finalSymbolForPlots= symbolFromPathDataTypeMap;
-            List<Plot> plots = plotMap.entrySet().stream().map(e -> new Plot(e.getKey(), e.getValue(), finalSymbolForPlots)).collect(Collectors.toList());
+            });
+            List<Plot> plots = plotMap.entrySet().stream().map(e -> new Plot(e.getKey(), e.getValue(), symbol)).collect(Collectors.toList());
             try{
-                Data data = new Data(headerPath.asText(), (totalValues==null || totalValues.isEmpty()) ? 0.0 : totalValues.stream().reduce(0.0, Double::sum),finalSymbolForPlots );
+                Data data = new Data(headerPath.asText(), (totalValues==null || totalValues.isEmpty()) ? 0.0 : totalValues.stream().reduce(0.0, Double::sum), symbol);
                 data.setPlots(plots);
                 dataList.add(data);
             } catch (Exception e) {
                 logger.error(" Legend/Header "+headerPath.asText() +" exception occurred "+e.getMessage());
             }
-       // });
-    }
+        });
 
         dataList.forEach(data -> {
             appendMissingPlot(plotKeys, data, symbol, isCumulative);

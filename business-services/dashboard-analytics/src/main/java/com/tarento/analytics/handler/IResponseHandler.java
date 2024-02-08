@@ -126,7 +126,7 @@ public interface IResponseHandler {
 	 */
 	default void addComputedField(Data data, String newfield, String partField, String wholeField) {
 		try {
-			Map<String, Plot> plotMap = data.getPlots().stream().collect(Collectors.toMap(Plot::getName, Function.identity()));
+			Map<String, Plot> plotMap = data.getPlots().stream().parallel().collect(Collectors.toMap(Plot::getName, Function.identity()));
 
 			if (plotMap.get(partField).getValue() == 0.0 || plotMap.get(wholeField).getValue() == 0.0) {
 				data.getPlots().add(new Plot(newfield, 0.0, "percentage"));
@@ -151,9 +151,9 @@ public interface IResponseHandler {
 		
 		logger.info("values for percentage are  " + values);
 		double val = (values.get(0)/values.get(1) * 100);
-		
+		if(isRoundOff) {
 		val = Math.round(val);
-		
+		}
 		return (values.size() > 1 && values.get(0) != 0.0 && values.get(1) != 0.0) ? val : 0.0;
 	}
 

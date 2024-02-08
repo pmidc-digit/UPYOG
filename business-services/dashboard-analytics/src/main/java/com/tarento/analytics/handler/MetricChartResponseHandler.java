@@ -43,7 +43,8 @@ public class MetricChartResponseHandler implements IResponseHandler{
     @Autowired 
     ComputeHelperFactory computeHelperFactory; 
     
-
+    @Autowired
+    ResponseRecorder responseRecorder;
 
 
     /**
@@ -87,25 +88,21 @@ public class MetricChartResponseHandler implements IResponseHandler{
         * Sums all value of all aggrsPaths i.e all aggregations
         * */
        boolean isRoundOff = (chartNode.get(IS_ROUND_OFF)!=null && chartNode.get(IS_ROUND_OFF).asBoolean()) ? true : false;
-       Plot latestDateplot = new Plot("todaysDate", Double.valueOf(0), "number");;
-		Plot lastUpdatedTime = new Plot("lastUpdatedTime", Double.valueOf(0), "number");
-		Boolean isTodaysCollection = (chartNode.get("TodaysCollection") == null ? Boolean.FALSE : chartNode.get("TodaysCollection").asBoolean());
-		for( JsonNode headerPath : aggrsPaths) {
+
+		aggrsPaths.forEach(headerPath -> {
 			List<JsonNode> values = aggregationNode.findValues(headerPath.asText());
-			int valueIndex = 0;
-			Double headerPathValue = new Double(0);
-			for (JsonNode value : values) {
+			values.stream().parallel().forEach(value -> {
 				if (isRoundOff) {
 					ObjectMapper mapper = new ObjectMapper();
 					JsonNode node = value.get("value");
-					if (node != null) {
+					if(node != null) {
 						Double roundOff = 0.0d;
 						try {
 							roundOff = mapper.treeToValue(node, Double.class);
 						} catch (JsonProcessingException e) {
 							e.printStackTrace();
 						}
-						if (roundOff != null) {
+						if(roundOff!=null) {
 							int finalvalue = (int) Math.round(roundOff);
 							((ObjectNode) value).put("value", finalvalue);
 						}
@@ -115,134 +112,21 @@ public class MetricChartResponseHandler implements IResponseHandler{
 				List<JsonNode> valueNodes = value.findValues(VALUE).isEmpty() ? value.findValues(DOC_COUNT)
 						: value.findValues(VALUE);
 				Double sum = valueNodes.stream().mapToDouble(o -> o.asDouble()).sum();
-				
-				// PreAction Theory should be consdiered and executed to modify the aggregation value
-				JsonNode preActionTheoryNode = chartNode.get("preActionTheory");
-				
-				if( preActionTheoryNode != null && preActionTheoryNode.findValue(headerPath.asText()) !=null && 
-						!preActionTheoryNode.findValue(headerPath.asText()).asText().isEmpty()) {
-					ComputeHelper computeHelper = computeHelperFactory.getInstance(preActionTheoryNode.findValue(headerPath.asText()).asText());
-					if(computeHelper !=null) {
-						sum = computeHelper.compute(request, sum); 
-					}
-	            	
-				}
-				
-				headerPathValue = Double.sum(headerPathValue, sum);
-
-				if (isTodaysCollection == Boolean.TRUE) {
-
-					String latestDateKey = null;
-					String lastUpdatedTimeKey = null;
-					List<JsonNode> latestDates = aggregationNode.findValues("todaysDate");
-					if (latestDates != null && latestDates.size() > 0) {
-						JsonNode latestDate = latestDates.get(valueIndex);
-						if (latestDate != null) {
-							List<JsonNode> latestDateBuckets = latestDate.findValues(BUCKETS);
-							if (latestDateBuckets != null && latestDateBuckets.size() > 0) {
-								JsonNode latestDateBucket = latestDateBuckets.get(0);
-								latestDateKey = (latestDateBucket.findValue(IResponseHandler.KEY) == null ? null
-										: latestDateBucket.findValue(IResponseHandler.KEY).asText());
-							}
-							if (latestDateKey != null
-									&& ((Double.valueOf(latestDateKey)) > latestDateplot.getValue())) {
-								latestDateplot.setValue(Double.valueOf(latestDateKey));
-							}
-
-						}
-						List<JsonNode >lastUpdatedTimeNodes = aggregationNode.findValues("lastUpdatedTime");
-						if (lastUpdatedTimeNodes != null && lastUpdatedTimeNodes.size() > 0) {
-							JsonNode lastUpdatedTimeNode = lastUpdatedTimeNodes.get(valueIndex);
-							if (lastUpdatedTimeNode != null) {
-								List<JsonNode> lastUpdatedTimeBuckets = lastUpdatedTimeNode.findValues(BUCKETS);
-								if (lastUpdatedTimeBuckets != null && lastUpdatedTimeBuckets.size() > 0) {
-									JsonNode lastUpdatedTimeBucket = lastUpdatedTimeBuckets.get(0);
-									lastUpdatedTimeKey = (lastUpdatedTimeBucket.findValue(IResponseHandler.KEY) == null
-											? null
-											: lastUpdatedTimeBucket.findValue(IResponseHandler.KEY).asText());
-								}
-
-								if (lastUpdatedTimeKey != null
-										&& ((Double.valueOf(lastUpdatedTimeKey)) > lastUpdatedTime.getValue())) {
-									lastUpdatedTime.setValue(Double.valueOf(lastUpdatedTimeKey));
-								}
-							}
-						}
-					}
-
-				}
-				valueIndex++;
-			}
 			// Why is aggrsPaths.size()==2 required? Is there validation if action =
 			// PERCENTAGE and aggrsPaths > 2
 			if (action.equals(PERCENTAGE) && aggrsPaths.size() == 2) {
-				percentageList.add(headerPathValue);
+					percentageList.add(sum);
 			} else {
-				totalValues.add(headerPathValue);
-			}
-			
+					totalValues.add(sum);
 		}
+			});
+		});
 
         String symbol = chartNode.get(IResponseHandler.VALUE_TYPE).asText();
        
         try{
             Data data = new Data(chartName, action.equals(PERCENTAGE) && aggrsPaths.size()==2? percentageValue(percentageList, isRoundOff) : (totalValues==null || totalValues.isEmpty())? 0.0 :totalValues.stream().reduce(0.0, Double::sum), symbol);
-			//Logic to perform DIVISION action
-			if (action.equals(DIVISION)){
-				if (totalValues.size() == 2) {
-					if (totalValues.get(1) != 0)
-						data.setHeaderValue(totalValues.get(0) / totalValues.get(1));
-					else
-						data.setHeaderValue(Double.valueOf(0));
-				}
-				else
-					throw new CustomException("INVALID_NUMBER_OF_OPERANDS", "Division operation can be performed only with 2 operands.");
-			}
-			data.setPlots( Arrays.asList(latestDateplot,lastUpdatedTime));
-            if (action.equals("division")){
-                if (totalValues.size() == 2) {
-                        if (totalValues.get(1) != 0)
-                                data.setHeaderValue(totalValues.get(0) / totalValues.get(1));
-                        else
-                                data.setHeaderValue(Double.valueOf(0));
-                }
-                else
-                        throw new CustomException("INVALID_NUMBER_OF_OPERANDS", "Division operation can be performed only with 2 operands.");
-        }
-            
-            if (action.equals("minus")){
-                if (totalValues.size() == 2) {
-                        if (totalValues.get(1) != 0)
-                                data.setHeaderValue(totalValues.get(1) - totalValues.get(0));
-                        else
-                                data.setHeaderValue(Double.valueOf(1));
-                }
-                else
-                        throw new CustomException("INVALID_NUMBER_OF_OPERANDS", "Subtraction operation can be performed only with 2 operands.");
-        }
-            
-            if (action.equals("percentageG")){
-                if (totalValues.size() == 2) {
-                        if (totalValues.get(1) != 0)
-                                data.setHeaderValue(Math.round(((totalValues.get(1) - totalValues.get(0))*100)/totalValues.get(0)));
-                        else
-                                data.setHeaderValue(Double.valueOf(totalValues.get(1)));
-                }
-                else if (totalValues.size() == 16) {
-                
-                    data.setHeaderValue(((totalValues.get(1)+totalValues.get(0)+totalValues.get(2)+totalValues.get(3)+totalValues.get(4)+totalValues.get(5)+totalValues.get(6)+totalValues.get(7))*100)/(totalValues.get(8)+totalValues.get(9)+totalValues.get(10)+totalValues.get(11)+totalValues.get(12)+totalValues.get(13)+totalValues.get(14)+totalValues.get(15)));
-
-            }
-                else if (totalValues.size() == 14) {
-                    
-                    data.setHeaderValue(((totalValues.get(1)+totalValues.get(0)+totalValues.get(2)+totalValues.get(3)+totalValues.get(4)+totalValues.get(5)+totalValues.get(6))*100)/(totalValues.get(7)+totalValues.get(8)+totalValues.get(9)+totalValues.get(10)+totalValues.get(11)+totalValues.get(12)+totalValues.get(13)));
-
-            }
-                else
-                        throw new CustomException("INVALID_NUMBER_OF_OPERANDS", "Percentage Growth operation can be performed only with 2 operands.");
-        }
-            data.setPlots( Arrays.asList(latestDateplot,lastUpdatedTime));
-            request.getResponseRecorder().put(visualizationCode, request.getModuleLevel(), data);
+            responseRecorder.put(visualizationCode, request.getModuleLevel(), data);
             dataList.add(data);
             if(chartNode.get(POST_AGGREGATION_THEORY) != null) { 
             	ComputeHelper computeHelper = computeHelperFactory.getInstance(chartNode.get(POST_AGGREGATION_THEORY).asText());

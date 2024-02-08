@@ -60,7 +60,7 @@ public class TargetPerDateComputeHelper implements ComputeHelper {
 				for(Data eachData : data) { 
 						Double value = (Double) eachData.getHeaderValue();
 						logger.info("Value is : " + value + " :: Date Difference is : " + dateDifference);
-						value = (value / (NUMBER_OF_DAYS * len)) * dateDifference; 
+						value = (value / NUMBER_OF_DAYS) * dateDifference; 
 						eachData.setHeaderValue(value);
 				}
 			} catch (Exception ex) { 

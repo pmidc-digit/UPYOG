@@ -53,29 +53,6 @@ public class PerformanceChartResponeHandler implements IResponseHandler {
                     	 String key = bucket.findValue(IResponseHandler.KEY).asText();
                     	 Double value = bucket.findValue(IResponseHandler.VALUE).asDouble();
                     	 
-                    	for (Iterator<String> it = bucket.fieldNames(); it.hasNext(); ) {
-                            String fieldName = it.next();
-                            if(bucket.get(fieldName) instanceof JsonNode){
-                                if(bucket.get(fieldName).findValue(IResponseHandler.BUCKETS) == null){
-                                	JsonNode valueNode =bucket.get(fieldName).findValue(IResponseHandler.VALUE);
-                                    value = (valueNode != null ? valueNode.asDouble(): Double.valueOf("0"));
-                                }
-
-                            }
-                        }                    
-                        
-                    	// PreAction Theory should be consdiered and executed to modify the aggregation value
-        				JsonNode preActionTheoryNode = chartNode.get("preActionTheory");
-        				
-        				if( preActionTheoryNode != null && preActionTheoryNode.findValue(headerPath.asText()) !=null && 
-        						!preActionTheoryNode.findValue(headerPath.asText()).asText().isEmpty()) {
-        					ComputeHelper computeHelper = computeHelperFactory.getInstance(preActionTheoryNode.findValue(headerPath.asText()).asText());
-        					if(computeHelper !=null) {
-        						value = computeHelper.compute(requestDto, value); 
-        					}
-        	            	
-        				}
-
                         if (mappings.containsKey(key)) {
                             Double sum = (mappings.get(key)).containsKey(headerPath.asText()) ? (mappings.get(key)).get(headerPath.asText()) + value : value;
                             (mappings.get(key)).put(headerPath.asText(), sum);
@@ -95,10 +72,10 @@ public class PerformanceChartResponeHandler implements IResponseHandler {
         });
         
         logger.info("performance chart data mappings : "+mappings);
-        List<Plot> plotList = mappings.entrySet().stream().map(e -> new Plot(e.getKey(), getPercentage(e.getValue(), aggrsPaths.get(0).asText(),aggrsPaths.get(1).asText(), isRoundOff), symbol)).collect(Collectors.toList());
+        List<Plot> plotList = mappings.entrySet().stream().parallel().map(e -> new Plot(e.getKey(), getPercentage(e.getValue(), aggrsPaths.get(0).asText(),aggrsPaths.get(1).asText(), isRoundOff), symbol)).collect(Collectors.toList());
         List<Plot> plots = plotList.stream().filter(plot -> plot.getValue() != 0.0).collect(Collectors.toList());
 
-        plots.stream().forEach(item -> item.setLabel(plotLabel));
+        plots.stream().parallel().forEach(item -> item.setLabel(plotLabel));
         Comparator<Plot> plotValueComparator = Comparator.comparing(Plot::getValue);
         plots.sort(plotValueComparator.reversed());
 //        for(int i=0;i<plots.size();i++) {

@@ -27,10 +27,7 @@ public class ComputedFieldFactory {
         } else if(className.equalsIgnoreCase(additiveComputedField.getClass().getSimpleName())) {
             return additiveComputedField;
 
-        } else if(className.equalsIgnoreCase(subtractiveComputedField.getClass().getSimpleName())) {
-            return subtractiveComputedField;
-
-        }else {
+        } else {
             throw new RuntimeException("Computer field not found for className "+className);
         }
 
