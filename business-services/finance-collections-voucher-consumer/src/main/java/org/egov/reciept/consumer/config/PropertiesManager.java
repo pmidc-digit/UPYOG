@@ -65,6 +65,9 @@ public class PropertiesManager {
     @Value("${egov.services.egov.user.host}")
     private String userHostUrl;
 
+    @Value("${egov.services.common.masters.businessdetails.url}")
+    private String businessDetailsServiceUrl;
+
     @Value("${egov.services.egf.voucher.create}")
     private String voucherCreateUrl;
     
