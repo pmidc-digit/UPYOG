@@ -165,20 +165,13 @@ public class UserService {
 		return userResponse;
 	}
 	
-	public UserResponse getUser(RequestInfo requestInfo, Map<String, Object> userSearchCriteria ) {
+	public UserResponse getUser(RequestInfo requestInfo, Map<String, Object> UserSearchCriteria ) {
 		StringBuilder uri = new StringBuilder();
 		Map<String, Object> userSearchReq = new HashMap<>();
-		User userInfoCopy = requestInfo.getUserInfo();
-
-		if(propertiesManager.getIsDecryptionEnable()){
-			User enrichedUserInfo = getEncrichedandCopiedUserInfo(String.valueOf(userSearchCriteria.get("tenantId")));
-			requestInfo.setUserInfo(enrichedUserInfo);
-		}
-
 		userSearchReq.put("RequestInfo", requestInfo);
 		userSearchReq.put(HRMSConstants.HRMS_USER_SERACH_CRITERIA_USERTYPE_CODE,HRMSConstants.HRMS_USER_SERACH_CRITERIA_USERTYPE);
-		for( String key: userSearchCriteria.keySet())
-			userSearchReq.put(key, userSearchCriteria.get(key));
+		for( String key: UserSearchCriteria.keySet())
+			userSearchReq.put(key, UserSearchCriteria.get(key));
 		uri.append(propertiesManager.getUserHost()).append(propertiesManager.getUserSearchEndpoint());
 		UserResponse userResponse = new UserResponse();
 		try {
@@ -186,8 +179,6 @@ public class UserService {
 		}catch(Exception e) {
 			log.error("User search failed: ",e);
 		}
-		if(propertiesManager.getIsDecryptionEnable())
-			requestInfo.setUserInfo(userInfoCopy);
 
 		return userResponse;
 	}
