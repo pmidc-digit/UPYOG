@@ -90,23 +90,16 @@ public class EnrichmentServiceImpl implements EnrichmentService {
 			@Value("${services.esindexer.username}") String userName,
 			@Value("${services.esindexer.password}") String password,
 			@Value("${es.index.name}") String elasticSearchIndexName,
-			@Value("${es.document.type}") String elasticSearchDocumentType, JSONUtil util) {
+			@Value("${es.document.type}") String elasticSearchDocumentType) {
 		this.indexServiceHost = indexServiceHost;
 		this.userName = userName;
 		this.password = password;
 		this.elasticSearchIndexName = elasticSearchIndexName;
 		this.elasticSearchDocumentType = elasticSearchDocumentType;
-		this.util=util;
 	}
 
 	@Override
 	public Map enrichData(Map incomingData) {
-		
-		Map<String,Object> dataObject = new ObjectMapper().convertValue(incomingData.get(DATA_OBJECT), Map.class);
-		String tenantId = dataObject.get(TENANTID).toString();
-		
-		List<String> mCollectCategories = util.fetchMCollectCategories(tenantId);
-
 		DomainConfig domainConfig = domainConfigFactory.getConfiguration(incomingData.get(DATA_CONTEXT).toString());
 		LOGGER.info("domainConfig ## "+domainConfig);
 
@@ -115,13 +108,6 @@ public class EnrichmentServiceImpl implements EnrichmentService {
 			ObjectNode incomingNode = new ObjectMapper().convertValue(incomingData.get(DATA_OBJECT), ObjectNode.class);
 			ObjectNode copyNode = incomingNode.deepCopy();
 			String businessTypeVal = copyNode.findValue(BUSINESS_SERVICE).asText();
-			
-			for(String category : mCollectCategories) {
-				if(category.equalsIgnoreCase(businessTypeVal)) {
-					businessTypeVal = MCOLLECT;
-					break;
-				}
-			}
 
 			DomainIndexConfig indexConfig = domainConfig.getIndexConfig(businessTypeVal.toString());
 			LOGGER.info("indexConfig ## "+indexConfig);
