@@ -687,46 +687,7 @@ config:
         
 # Frontend
 
-  - name: builds/upyog/frontend/mono-ui/citizen
-    build:
-      - work-dir: frontend/mono-ui/web/rainmaker/
-        dockerfile: frontend/mono-ui/web/rainmaker/docker/citizen/Dockerfile
-        image-name: citizen
-
-  - name: builds/upyog/frontend/mono-ui/employee
-    build:
-      - work-dir: frontend/mono-ui/web/rainmaker/
-        dockerfile: frontend/mono-ui/web/rainmaker/docker/employee/Dockerfile
-        image-name: employee
-
-  - name: builds/upyog/frontend/mono-ui/employee-mcs
-    build:
-      - work-dir: frontend/mono-ui/web/rainmaker/
-        dockerfile: frontend/mono-ui/web/rainmaker/docker/employee-mcs/Dockerfile
-        image-name: employee-mcs
-
-  - name: builds/upyog/frontend/mono-ui/localization
-    build:
-      - work-dir: frontend/mono-ui/web/rainmaker/
-        dockerfile: frontend/mono-ui/web/rainmaker/docker/localization/Dockerfile
-        image-name: ui-localisation
-
-  - name: builds/upyog/frontend/mono-ui/ui-uploader
-    build:
-      - work-dir: frontend/mono-ui/web/ui-uploader/
-        image-name: ui-uploader
-
-  - name: builds/upyog/frontend/mono-ui/dss-dashboard
-    build:
-      - work-dir: frontend/mono-ui/web/dss-dashboard/
-        dockerfile: frontend/mono-ui/web/dss-dashboard/docker/Dockerfile
-        image-name: dss-dashboard
-      
-  - name: builds/upyog/frontend/mono-ui/common-screen
-    build:
-      - work-dir: frontend/mono-ui/web/egov-common-screen/
-        dockerfile: frontend/mono-ui/web/egov-common-screen/docker/Dockerfile
-        image-name: common-screen
+ 
 
   - name: builds/upyog/frontend/micro-ui/digit-ui
     build:
